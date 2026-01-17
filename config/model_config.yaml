@@ -1,0 +1,122 @@
+# Model Configuration for Sports World Model
+
+model:
+  # Vocabulary size (will be updated after tokenization)
+  vocab_size: 2000  # Placeholder, actual size depends on tokenizer
+
+  # Model architecture
+  d_model: 512  # Embedding dimension
+  n_heads: 8  # Number of attention heads
+  n_layers: 6  # Number of transformer blocks
+  d_ff: 2048  # Feedforward dimension
+  max_seq_len: 2048  # Maximum sequence length
+  dropout: 0.1
+  context_dim: 256  # Dimension for news/context embeddings
+
+training:
+  # Training hyperparameters
+  batch_size: 32
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  warmup_steps: 1000
+  max_epochs: 10
+  gradient_clip: 1.0
+
+  # Learning rate schedule
+  lr_scheduler: "cosine"  # Options: "cosine", "linear", "constant"
+
+  # Optimization
+  optimizer: "adamw"
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+
+  # Checkpointing
+  save_every_n_epochs: 1
+  keep_last_n_checkpoints: 3
+
+  # Evaluation
+  eval_every_n_steps: 500
+  eval_batches: 100
+
+data:
+  # Data paths
+  train_data_path: "data/processed/train/"
+  val_data_path: "data/processed/val/"
+  test_data_path: "data/processed/test/"
+
+  # Data split ratios
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+
+  # Sequence parameters
+  min_seq_len: 50  # Minimum events per sequence
+  max_seq_len: 2048  # Maximum events per sequence
+  stride: 1024  # Sliding window stride
+
+  # Data augmentation
+  random_crop: true
+  crop_prob: 0.1
+
+simulation:
+  # Simulation parameters
+  n_simulations: 10000  # Number of Monte Carlo runs
+  temperature: 1.0  # Sampling temperature
+  top_p: 0.95  # Nucleus sampling threshold
+  top_k: null  # Top-k sampling (null = disabled)
+
+  # Futures bet evaluation
+  min_edge_threshold: 0.05  # Minimum edge to recommend bet (5%)
+  confidence_level: 0.95  # Confidence interval level
+
+  # Kelly criterion
+  kelly_fraction: 0.25  # Fractional Kelly (conservative)
+  max_bet_size: 0.05  # Max 5% of bankroll per bet
+
+sport:
+  # Sport-specific settings
+  target_sport: "nba"
+  season: "2024-25"
+
+  # NBA-specific
+  games_per_season: 82
+  quarters_per_game: 4
+  minutes_per_quarter: 12
+  playoff_teams: 16
+
+  # Futures markets to target
+  target_markets:
+    - "playoff_appearance"
+    - "championship"
+    - "conference_championship"
+    - "division_winner"
+    - "season_win_total"
+    - "player_mvp"
+    - "player_roy"
+
+logging:
+  # Weights & Biases (wandb) configuration
+  use_wandb: true
+  wandb_project: "sports-world-model"
+  wandb_entity: null  # Your wandb username
+
+  # Local logging
+  log_dir: "logs/"
+  log_interval: 100  # Log every N steps
+
+  # What to log
+  log_perplexity: true
+  log_gradients: false
+  log_attention_weights: false
+
+hardware:
+  # Hardware settings
+  device: "cuda"  # Options: "cuda", "cpu", "mps" (Mac)
+  mixed_precision: true  # Use automatic mixed precision (AMP)
+  num_workers: 4  # DataLoader workers
+  pin_memory: true
+
+  # Distributed training (if multiple GPUs)
+  distributed: false
+  world_size: 1
+  rank: 0

@@ -1,10 +1,9 @@
-# Core dependencies
-anthropic>=0.39.0
-claude-agent-sdk>=0.1.0
+# Strands Agents - AWS multi-agent framework
+strands-agents>=1.0.0
+strands-agents-tools>=1.0.0
 
-# Async support
-asyncio
-aiofiles
+# Anthropic for LLM judge and Claude Agent SDK
+anthropic>=0.39.0
 
 # Type hints and validation
 pydantic>=2.0.0
@@ -12,3 +11,4 @@ typing-extensions
 
 # Utilities
 python-dotenv
+asyncio

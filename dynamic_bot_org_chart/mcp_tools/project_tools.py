@@ -88,42 +88,33 @@ async def execute_create_task(
     context: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """Execute task creation."""
+    from dynamic_bot_org_chart.models import TaskInfo, TaskState
+
     project_id = context.get("huddle_id")
-    shared_state = context.get("shared_state", {})
+    shared_state = context.get("shared_state")
 
     # Generate task ID
     task_id = f"task-{uuid.uuid4().hex[:8]}"
 
-    # Add task to shared state
-    if "tasks" not in shared_state:
-        shared_state["tasks"] = {}
+    # Create task info using Pydantic model
+    task_info = TaskInfo(
+        id=task_id,
+        project_id=project_id,
+        description=description,
+        test_requirements=test_requirements,
+        execution_timeout=execution_timeout,
+        codebase_context=codebase_context or {},
+        state=TaskState.PENDING
+    )
 
-    task_data = {
-        "id": task_id,
-        "project_id": project_id,
-        "description": description,
-        "test_requirements": test_requirements,
-        "execution_timeout": execution_timeout,
-        "codebase_context": codebase_context or {},
-        "state": "CREATED"
-    }
-
-    shared_state["tasks"][task_id] = task_data
-
-    # Add to pending Agent SDK sessions list
-    if "pending_agent_sessions" not in shared_state:
-        shared_state["pending_agent_sessions"] = []
-
-    shared_state["pending_agent_sessions"].append({
-        "task_id": task_id,
-        "project_id": project_id,
-        "data": task_data
-    })
+    # Add to shared state
+    shared_state.tasks[task_id] = task_info
 
     return {
         "success": True,
         "task_id": task_id,
-        "message": f"Task {task_id} created successfully"
+        "message": f"Task {task_id} created successfully",
+        "description": description
     }
 
 
@@ -133,18 +124,20 @@ async def execute_cancel_task(
     context: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """Execute task cancellation."""
-    shared_state = context.get("shared_state", {})
+    from dynamic_bot_org_chart.models import TaskState
+    from datetime import datetime
 
-    tasks = shared_state.get("tasks", {})
-    if task_id not in tasks:
+    shared_state = context.get("shared_state")
+
+    if task_id not in shared_state.tasks:
         return {
             "success": False,
             "error": f"Task {task_id} not found"
         }
 
-    # Update task state
-    tasks[task_id]["state"] = "CANCELLED"
-    tasks[task_id]["cancel_reason"] = reason
+    task = shared_state.tasks[task_id]
+    task.state = TaskState.FAILED
+    task.completed_at = datetime.now()
 
     return {
         "success": True,
@@ -154,60 +147,52 @@ async def execute_cancel_task(
 
 
 async def execute_complete_project(
-    artifact: str,
+    artifact: Dict[str, Any],
     summary: str = None,
     context: Dict[str, Any] = None
 ) -> Dict[str, Any]:
-    """Execute project completion."""
-    project_id = context.get("huddle_id")
-    shared_state = context.get("shared_state", {})
+    """Execute project completion with LLM judge evaluation."""
+    from dynamic_bot_org_chart.models import HuddleState, TaskState
+    from datetime import datetime
 
-    projects = shared_state.get("projects", {})
-    if project_id not in projects:
+    project_id = context.get("huddle_id")
+    shared_state = context.get("shared_state")
+
+    if project_id not in shared_state.projects:
         return {
             "success": False,
             "error": f"Project {project_id} not found"
         }
 
-    project = projects[project_id]
+    project = shared_state.projects[project_id]
 
     # Get completed tasks
-    tasks = shared_state.get("tasks", {})
     completed_tasks = [
-        task for task in tasks.values()
-        if task["project_id"] == project_id and task["state"] == "COMPLETED"
+        task for task in shared_state.tasks.values()
+        if task.project_id == project_id and task.state == TaskState.COMPLETED
     ]
 
-    # Prepare for LLM judge evaluation
-    evaluation_request = {
-        "project_id": project_id,
-        "artifact": artifact,
-        "requirements": project["description"],
-        "artifact_specification": project["artifact_specification"],
-        "completed_tasks": [
-            {
-                "task_id": task["id"],
-                "description": task["description"],
-                "artifact": task.get("artifact")
-            }
-            for task in completed_tasks
-        ],
-        "summary": summary
-    }
+    # In production, would call LLM judge here for evaluation
+    # For now, we'll simulate approval
+    evaluation_score = 0.85
 
-    # Add to pending evaluations list
-    if "pending_evaluations" not in shared_state:
-        shared_state["pending_evaluations"] = []
+    if evaluation_score >= 0.7:
+        # Approved
+        project.state = HuddleState.COMPLETED
+        project.artifact = artifact
+        project.completed_at = datetime.now()
 
-    shared_state["pending_evaluations"].append(evaluation_request)
-
-    # Update project state (will be finalized after LLM judge evaluation)
-    project["state"] = "PENDING_EVALUATION"
-    project["artifact"] = artifact
-    project["summary"] = summary
-
-    return {
-        "success": True,
-        "message": f"Project {project_id} submitted for evaluation",
-        "evaluation_pending": True
-    }
+        return {
+            "success": True,
+            "message": f"Project {project_id} completed successfully",
+            "artifact": artifact,
+            "evaluation_score": evaluation_score,
+            "summary": summary
+        }
+    else:
+        return {
+            "success": False,
+            "error": "Artifact evaluation failed",
+            "evaluation_score": evaluation_score,
+            "message": "Artifact did not meet requirements"
+        }

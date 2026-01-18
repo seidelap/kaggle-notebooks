@@ -84,36 +84,33 @@ async def execute_create_project(
     context: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """Execute project creation."""
+    from dynamic_bot_org_chart.models import ProjectInfo, HuddleState
+
     product_id = context.get("huddle_id")
-    shared_state = context.get("shared_state", {})
+    shared_state = context.get("shared_state")
 
     # Generate project ID
     project_id = f"project-{uuid.uuid4().hex[:8]}"
 
-    # Add project to shared state
-    if "projects" not in shared_state:
-        shared_state["projects"] = {}
+    # Create project info using Pydantic model
+    project_info = ProjectInfo(
+        id=project_id,
+        parent_product_id=product_id,
+        description=description,
+        artifact_specification=artifact_specification,
+        execution_timeout=execution_timeout,
+        state=HuddleState.WAITING
+    )
 
-    project_data = {
-        "id": project_id,
-        "parent_product_id": product_id,
-        "description": description,
-        "artifact_specification": artifact_specification,
-        "execution_timeout": execution_timeout,
-        "state": "CREATED"
-    }
-
-    shared_state["projects"][project_id] = project_data
+    # Add to shared state
+    shared_state.projects[project_id] = project_info
 
     # Add to graph nodes list (to be created later)
-    if "pending_graph_nodes" not in shared_state:
-        shared_state["pending_graph_nodes"] = []
-
-    shared_state["pending_graph_nodes"].append({
+    shared_state.pending_graph_nodes.append({
         "type": "project",
         "id": project_id,
         "parent": product_id,
-        "data": project_data
+        "project_info": project_info
     })
 
     return {

@@ -1,7 +1,29 @@
-"""Dynamic Bot Org Chart - Agent-based framework built on Strands Agents."""
+"""Dynamic Bot Org Chart - Agent-based framework built on AWS Strands Agents."""
 
-__version__ = "0.2.0"
+__version__ = "1.0.0"
 
-# Imports will be added as we build the implementation
+from dynamic_bot_org_chart.models import (
+    OrgChartState,
+    HuddleState,
+    TaskState,
+    ProjectInfo,
+    TaskInfo,
+    EscalationInfo,
+    FeedbackInfo,
+)
+from dynamic_bot_org_chart.graph.orchestrator import GraphOrchestrator
+from dynamic_bot_org_chart.huddles.product_huddle import ProductHuddle
+from dynamic_bot_org_chart.huddles.project_huddle import ProjectHuddle
 
-__all__ = []
+__all__ = [
+    "OrgChartState",
+    "HuddleState",
+    "TaskState",
+    "ProjectInfo",
+    "TaskInfo",
+    "EscalationInfo",
+    "FeedbackInfo",
+    "GraphOrchestrator",
+    "ProductHuddle",
+    "ProjectHuddle",
+]

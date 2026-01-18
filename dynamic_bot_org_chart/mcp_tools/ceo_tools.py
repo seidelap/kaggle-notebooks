@@ -34,11 +34,7 @@ async def execute_request_human_feedback(
 ) -> Dict[str, Any]:
     """Execute human feedback request."""
     huddle_id = context.get("huddle_id")
-    shared_state = context.get("shared_state", {})
-
-    # Add human feedback request to shared state
-    if "human_feedback_requests" not in shared_state:
-        shared_state["human_feedback_requests"] = []
+    shared_state = context.get("shared_state")
 
     feedback_request = {
         "huddle_id": huddle_id,
@@ -47,10 +43,10 @@ async def execute_request_human_feedback(
         "status": "PENDING"
     }
 
-    shared_state["human_feedback_requests"].append(feedback_request)
+    shared_state.human_feedback_requests.append(feedback_request)
 
     # In production, this would pause execution and wait for human input
-    # For now, we'll return a placeholder response
+    # For now, we'll return a simulated response
     print("\n" + "=" * 60)
     print("HUMAN FEEDBACK REQUEST")
     print("=" * 60)

@@ -96,6 +96,8 @@ def wait_tool() -> Dict[str, Any]:
 
 async def execute_escalate(reason: str, wait: bool = True, context: Dict[str, Any] = None) -> Dict[str, Any]:
     """Execute escalation."""
+    from dynamic_bot_org_chart.models import EscalationInfo, HuddleState
+
     huddle_id = context.get("huddle_id")
     parent_id = context.get("parent_huddle_id")
 
@@ -105,29 +107,24 @@ async def execute_escalate(reason: str, wait: bool = True, context: Dict[str, An
             "error": f"Huddle {huddle_id} has no parent to escalate to"
         }
 
-    # Get shared state from context
-    shared_state = context.get("shared_state", {})
+    shared_state = context.get("shared_state")
 
-    # Add escalation to shared state
-    if "escalations" not in shared_state:
-        shared_state["escalations"] = []
-
-    escalation = {
-        "from": huddle_id,
-        "to": parent_id,
-        "reason": reason,
-        "wait": wait
-    }
-    shared_state["escalations"].append(escalation)
+    # Create escalation info
+    escalation = EscalationInfo(
+        from_huddle=huddle_id,
+        to_huddle=parent_id,
+        reason=reason,
+        wait=wait
+    )
+    shared_state.escalations.append(escalation)
 
     # Mark this huddle as blocked
-    shared_state[f"{huddle_id}_state"] = "BLOCKED"
-    shared_state[f"{huddle_id}_blocked_reason"] = reason
+    shared_state.huddle_states[huddle_id] = HuddleState.BLOCKED
 
     return {
         "success": True,
         "message": f"Escalated to {parent_id}",
-        "escalation": escalation
+        "escalation": escalation.dict()
     }
 
 
@@ -138,31 +135,29 @@ async def execute_resolve_blocker(
     context: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """Execute blocker resolution."""
+    from dynamic_bot_org_chart.models import HuddleState
+    from datetime import datetime
+
     huddle_id = context.get("huddle_id")
-    shared_state = context.get("shared_state", {})
+    shared_state = context.get("shared_state")
 
     # Check if child is blocked
-    child_state = shared_state.get(f"{child_node_id}_state")
-    if child_state != "BLOCKED":
+    child_state = shared_state.huddle_states.get(child_node_id)
+    if child_state != HuddleState.BLOCKED:
         return {
             "success": False,
             "error": f"Child {child_node_id} is not blocked (state: {child_state})"
         }
 
-    # Resolve the blocker
-    shared_state[f"{child_node_id}_state"] = "WAITING"
-    shared_state[f"{child_node_id}_blocked_reason"] = None
-    shared_state[f"{child_node_id}_resolution"] = resolution
+    # Find and resolve the escalation
+    for escalation in shared_state.escalations:
+        if escalation.from_huddle == child_node_id and escalation.resolved_at is None:
+            escalation.resolution = resolution
+            escalation.resolved_at = datetime.now()
+            break
 
-    # Add resolution to history
-    if "resolutions" not in shared_state:
-        shared_state["resolutions"] = []
-
-    shared_state["resolutions"].append({
-        "parent": huddle_id,
-        "child": child_node_id,
-        "resolution": resolution
-    })
+    # Unblock the child
+    shared_state.huddle_states[child_node_id] = HuddleState.WAITING
 
     return {
         "success": True,
@@ -177,39 +172,40 @@ async def execute_provide_feedback(
     context: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """Execute providing feedback."""
+    from dynamic_bot_org_chart.models import FeedbackInfo, HuddleState
+
     huddle_id = context.get("huddle_id")
-    shared_state = context.get("shared_state", {})
+    shared_state = context.get("shared_state")
 
-    # Add feedback to shared state
-    if "feedback" not in shared_state:
-        shared_state["feedback"] = []
-
-    feedback_entry = {
-        "from": huddle_id,
-        "to": target_huddle,
-        "feedback": feedback
-    }
-    shared_state["feedback"].append(feedback_entry)
+    # Create feedback info
+    feedback_entry = FeedbackInfo(
+        from_huddle=huddle_id,
+        to_huddle=target_huddle,
+        feedback=feedback
+    )
+    shared_state.feedback.append(feedback_entry)
 
     # Wake up target if waiting
-    target_state = shared_state.get(f"{target_huddle}_state")
-    if target_state == "WAITING":
-        shared_state[f"{target_huddle}_state"] = "EXECUTING"
+    target_state = shared_state.huddle_states.get(target_huddle)
+    if target_state == HuddleState.WAITING:
+        shared_state.huddle_states[target_huddle] = HuddleState.EXECUTING
 
     return {
         "success": True,
         "message": f"Feedback provided to {target_huddle}",
-        "feedback": feedback_entry
+        "feedback": feedback_entry.dict()
     }
 
 
 async def execute_wait(timeout: int = None, context: Dict[str, Any] = None) -> Dict[str, Any]:
     """Execute wait."""
+    from dynamic_bot_org_chart.models import HuddleState
+
     huddle_id = context.get("huddle_id")
-    shared_state = context.get("shared_state", {})
+    shared_state = context.get("shared_state")
 
     # Mark as waiting
-    shared_state[f"{huddle_id}_state"] = "WAITING"
+    shared_state.huddle_states[huddle_id] = HuddleState.WAITING
 
     return {
         "success": True,

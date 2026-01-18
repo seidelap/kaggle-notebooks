@@ -126,18 +126,20 @@ async def execute_cancel_project(
     context: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """Execute project cancellation."""
-    shared_state = context.get("shared_state", {})
+    from dynamic_bot_org_chart.models import HuddleState
+    from datetime import datetime
 
-    projects = shared_state.get("projects", {})
-    if project_id not in projects:
+    shared_state = context.get("shared_state")
+
+    if project_id not in shared_state.projects:
         return {
             "success": False,
             "error": f"Project {project_id} not found"
         }
 
-    # Update project state
-    projects[project_id]["state"] = "CANCELLED"
-    projects[project_id]["cancel_reason"] = reason
+    project = shared_state.projects[project_id]
+    project.state = HuddleState.FAILED
+    project.completed_at = datetime.now()
 
     return {
         "success": True,
@@ -152,43 +154,40 @@ async def execute_evaluate_completed_project(
     context: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """Execute project evaluation."""
-    shared_state = context.get("shared_state", {})
+    from dynamic_bot_org_chart.models import HuddleState
 
-    projects = shared_state.get("projects", {})
-    if project_id not in projects:
+    shared_state = context.get("shared_state")
+
+    if project_id not in shared_state.projects:
         return {
             "success": False,
             "error": f"Project {project_id} not found"
         }
 
-    project = projects[project_id]
-    if project["state"] != "COMPLETED":
+    project = shared_state.projects[project_id]
+    if project.state != HuddleState.COMPLETED:
         return {
             "success": False,
-            "error": f"Project {project_id} is not completed (state: {project['state']})"
+            "error": f"Project {project_id} is not completed (state: {project.state})"
         }
 
     if convert_to_product:
         # Convert to new product
+        # In production, would create a new Product Huddle node in the graph
         new_product_id = f"product-{uuid.uuid4().hex[:8]}"
 
-        if "products" not in shared_state:
-            shared_state["products"] = {}
-
-        shared_state["products"][new_product_id] = {
-            "id": new_product_id,
-            "original_project_id": project_id,
-            "description": project["description"],
-            "artifact": project.get("artifact"),
-            "state": "ACTIVE"
-        }
-
         action = "converted_to_product"
-        result_data = {"new_product_id": new_product_id}
+        result_data = {
+            "new_product_id": new_product_id,
+            "artifact": project.artifact
+        }
     else:
         # Keep as part of parent product
         action = "kept_in_parent_product"
-        result_data = {"parent_product_id": project["parent_product_id"]}
+        result_data = {
+            "parent_product_id": project.parent_product_id,
+            "artifact": project.artifact
+        }
 
     return {
         "success": True,

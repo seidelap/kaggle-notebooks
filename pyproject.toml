@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dynamic-bot-org-chart"
+version = "0.1.0"
+description = "Event-driven, agent-based framework for managing products and projects with hierarchical escalation"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "anthropic>=0.39.0",
+    "claude-agent-sdk>=0.1.0",
+    "pydantic>=2.0.0",
+    "python-dotenv",
+    "typing-extensions",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+
+[tool.setuptools]
+packages = ["dynamic_bot_org_chart"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39']
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
